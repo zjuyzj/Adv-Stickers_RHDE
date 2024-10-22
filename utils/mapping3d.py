@@ -1,25 +1,12 @@
-import os, sys
-import subprocess
 import numpy as np
 from numpy.linalg import *
 import dlib
 import cv2
-import scipy.io as sio
-from skimage import io
-from time import time
-import matplotlib.pyplot as plt
 from PIL import Image
-from matplotlib import pyplot as plt
-import matplotlib.image as imgplt
-from mpl_toolkits.mplot3d import Axes3D
 from scipy import integrate
 from scipy.optimize import fsolve
 import math
-from torchvision import datasets
-from utils import stick
 
-#sys.path.append('..')
-import face3d
 from face3d import mesh
 from face3d.morphable_model import MorphabelModel
 
@@ -242,7 +229,7 @@ def change_sticker(sticker,scale):
     new_weight = int(sticker.size[0]/scale)
     new_height = int(sticker.size[1]/scale)
     #print(new_weight,new_height)
-    sticker = sticker.resize((new_weight,new_height),Image.ANTIALIAS)
+    sticker = sticker.resize((new_weight,new_height), Image.Resampling.LANCZOS)
     return sticker
 
 

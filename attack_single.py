@@ -1,18 +1,7 @@
-from PIL import Image 
-from PIL import ImageEnhance
+from PIL import Image
 import numpy as np
-import scipy
-import torch
-import torchvision.models as models
-from torchvision import datasets, transforms
-import os
-import xlwt
-from tqdm import tqdm
-import time 
-import copy
+import copy, os
 import random
-import argparse
-import cv2
 
 from heuristicsDE import differential_evolution
 from utils import Config
@@ -264,6 +253,7 @@ def attack(idx,true_label,initial_pic,sticker,opstickercv,magnification,\
     
     rank, pred_p = eval('predict.predict_type_{}([initial_pic],cleancrop)'.format(threat_model))
     rank2, pred_p2 = eval('predict.predict_type_{}(attack_image,cleancrop)'.format(threat_model))
+    os.makedirs('./results_img', exist_ok=True)
     attack_image[0].save('./results_img/{}.png'.format(idx))
     
     prior_probs = pred_p[0][target_class].item()

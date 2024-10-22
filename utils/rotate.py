@@ -1,7 +1,6 @@
 from PIL import Image
 import numpy as np
 import cv2
-from matplotlib import pyplot as plt
 
 def img_to_cv(image):
     imgarray = np.array(image)

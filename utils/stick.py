@@ -1,7 +1,6 @@
 from PIL import Image
 import numpy as np
 import cv2
-from matplotlib import pyplot as plt
 
 def transparent_back(pic_path):    # make jpg picture's background transparent(png)
     img = cv2.imread(pic_path)     # array
@@ -77,7 +76,7 @@ def change_sticker(sticker,scale):
     new_weight = int(sticker.size[0]/scale)
     new_height = int(sticker.size[1]/scale)
     #print(new_weight,new_height)
-    sticker = sticker.resize((new_weight,new_height),Image.ANTIALIAS)
+    sticker = sticker.resize((new_weight,new_height), Image.Resampling.LANCZOS)
     return sticker
 
 def make_basemap(width,height,sticker,x,y):

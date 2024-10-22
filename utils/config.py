@@ -1,5 +1,3 @@
-import torch
-from PIL import Image
 from torchvision import datasets
 
 class Config(object):
@@ -13,10 +11,5 @@ class Config(object):
     dataset = datasets.ImageFolder(data_dir)
     pic = dataset[idx][0]
     gtlabel = dataset[idx][1]
-    
-    
-    # pic = Image.open()
-    # idx = -1
-    # gtlabel = 
 
     

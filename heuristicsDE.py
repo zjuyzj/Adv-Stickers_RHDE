@@ -3,8 +3,8 @@ import numpy as np
 from scipy.optimize import OptimizeResult, minimize
 from scipy.optimize.optimize import _status_message
 from scipy._lib._util import check_random_state
-from scipy._lib.six import xrange, string_types
-import warnings
+from six import string_types
+from six.moves import xrange
 
 timmm = 0
 __all__ = ['differential_evolution']

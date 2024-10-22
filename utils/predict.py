@@ -1,23 +1,13 @@
-from PIL import Image, ImageDraw
-from torchvision import datasets, transforms
-from facenet_pytorch import MTCNN, InceptionResnetV1, fixed_image_standardization, training
-from torch.utils.data import DataLoader, SubsetRandomSampler
-from torch import optim
-from torch.optim.lr_scheduler import MultiStepLR
+from facenet_pytorch import MTCNN, InceptionResnetV1
+from torch.utils.data import DataLoader
 import numpy as np
-import scipy
 import torch
-import torchvision.models as models
-import os
-import cv2
 from models import *
 import warnings
-import shutil
 
 from utils import rotate
 from utils import stick
 from utils import mapping3d
-from utils import feature
 warnings.filterwarnings("ignore")
 
 """ perturb the image """
@@ -111,7 +101,8 @@ def predict_type_facenet(image_perturbed, cleancrop):
         device=device
     )
 
-    resnet = torch.load('./models/facenet/net_13_022.pth',map_location='cuda:0').to(device)
+    resnet = InceptionResnetV1(classify=True, pretrained='vggface2').to(device)
+    # resnet.load_state_dict(torch.load('./models/facenet/ckpt.pt', map_location=device))
     resnet.eval()
     resnet.classify = True
     
@@ -156,7 +147,8 @@ def initial_predict_facenet(image_perturbed):
         device=device
     )
 
-    resnet = torch.load('./models/facenet/net_13_022.pth',map_location='cuda:0').to(device)
+    resnet = InceptionResnetV1(classify=True, pretrained='vggface2').to(device)
+    # resnet.load_state_dict(torch.load('./models/facenet/ckpt.pt', map_location=device))
     resnet.eval()
     resnet.classify = True
     

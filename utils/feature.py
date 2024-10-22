@@ -1,10 +1,7 @@
 # _*_ coding:utf-8 _*_
 import numpy as np
 import dlib
-from cv2 import cv2
-from PIL import Image
-from utils import stick
-from torchvision import datasets
+import cv2
 
 def face_landmarks(initial_pic):
     dotsets = np.zeros((1,81,2))
