@@ -110,7 +110,6 @@ class DifferentialEvolutionSolver(object):
         # _unscale_parameter. This is an optimization
         self.__scale_arg1 = 0.5 * (self.limits[0] + self.limits[1])
         self.__scale_arg2 = np.fabs(self.limits[0] - self.limits[1])
-        #print('__scale_arg1,__scale_arg2 = ',self.__scale_arg1,self.__scale_arg2)
 
         self.parameter_count = np.size(self.limits, 1)
 
@@ -288,12 +287,8 @@ class DifferentialEvolutionSolver(object):
 
             # should the solver terminate?
             convergence = self.convergence
-            # print('judge----',self.callback(self._scale_parameters(self.population[0]),
-            #                       convergence=self.tol / convergence))
             
             print('iter = ',nit,'bestparam=',self.parampopulation[0],'score=',self.population_energies[0])
-            #print('valid------',self.valid[0])
-            # print('test ',self._scale_parameters(self.population[0]))
             if ((self.callback and
                     self.callback(self._scale_parameters(self.population[0]),
                                   convergence=self.tol / convergence) is True) or self.population_energies[0]<-99):
@@ -389,7 +384,6 @@ class DifferentialEvolutionSolver(object):
         self.rank[0], self.rank[minval] = self.rank[minval], self.rank[0]
         self.pred_p[0], self.pred_p[minval] = self.pred_p[minval], self.pred_p[0]
         self.valid[0], self.valid[minval] = self.valid[minval],self.valid[0]
-        #print('1 self.param[0],energys=',self.parampopulation[0],self.population_energies[0])
 
     def __iter__(self):
         return self
@@ -434,16 +428,6 @@ class DifferentialEvolutionSolver(object):
         for trial in trials: self._ensure_constraint(trial)
         parameters2 = np.array([self._scale_parameters(trial) for trial in trials[num_inbreeding:,:]])
         parameters = np.vstack((param_inb,parameters2))
-        #print('max1 = ',np.max(param_inb),'max2 = ',np.max(parameters2))
-        # print('-----------test---------------------')
-        # print('trials1[0] = ',trials1[0])
-        # print('trials[0] = ',trials[0])
-        # print('parameters[0] = ',parameters[0])
-        # print('scale = ',self._scale_parameters(trials1[0]))
-        # print('-----------------end-----------------')
-        # print('num_population_members,itersize= ',self.num_population_members,itersize)
-        # print('param1 param2 = ',len(trials1),len(trials2),len(trials))
-        # print('when using func, len of xs = ',len(parameters))
         energies,rank,convert,pred_p,valid = self.func(parameters,0, *self.args)
         self._nfev += itersize
 
@@ -468,15 +452,11 @@ class DifferentialEvolutionSolver(object):
                     self.rank[0] = rank[candidate]
                     self.pred_p[0] = pred_p[candidate]
                     self.valid[0] = valid[candidate]
-                    # if(energy<-99):
-                    #     print('now = ',self.parampopulation[0],self.population_energies[0])
-        #print('2 self.param=',self.parampopulation[0],self.population_energies[0])
         if(convert == True):
             #param = np.array([self._scale_parameters(trial) for trial in self.population])
             # param = self.parampopulation
             # self.population_energies,_,_ = self.func(param,0, *self.args)
             self.population_energies = self.ct_energy(self.rank,self.pred_p,self.valid)
-            #print('3 self.population_energies=',self.population_energies[0])
         
         return self.x, self.population_energies[0]
 

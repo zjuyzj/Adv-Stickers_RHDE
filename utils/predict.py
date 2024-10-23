@@ -1,5 +1,6 @@
-from facenet_pytorch import MTCNN, InceptionResnetV1
 from torch.utils.data import DataLoader
+from torchvision import transforms
+from torchvision.models import GoogLeNet
 import numpy as np
 import torch
 from models import *
@@ -11,10 +12,8 @@ from utils import mapping3d
 warnings.filterwarnings("ignore")
 
 """ perturb the image """
-def perturb_image(xs, backimg, sticker,opstickercv,magnification, zstore, searchspace, facemask):
+def perturb_image(xs, backimg, sticker,opstickercv,magnification, z_buffer, searchspace, mask):
     xs = np.array(xs)
-    #print('xs = ',xs)
-    #print('imgs=',image_arr.shape)
     d = xs.ndim
     if(d==1):
         xs = np.array([xs])
@@ -24,32 +23,31 @@ def perturb_image(xs, backimg, sticker,opstickercv,magnification, zstore, search
     valid = []
     l = len(xs)
     for i in range(l):
-        #print('making {}-th perturbed image'.format(i),end='\r')
         sid = int(xs[i][0])
         x = int(searchspace[sid][0])
         y = int(searchspace[sid][1])
         angle = xs[i][2]
         rt_sticker = rotate.rotate_bound_white_bg(opstickercv, angle)
-        nsticker,_ = mapping3d.deformation3d(sticker,rt_sticker,magnification,zstore,x,y)
-        outImage = stick.make_stick2(backimg=backimg, sticker=nsticker, x=x, y=y, factor=xs[i][1])
+        nsticker,_ = mapping3d.deformation3d(sticker,rt_sticker,magnification,z_buffer,x,y)
+        outImage = stick.make_stick(backimg=backimg, sticker=nsticker, x=x, y=y, factor=xs[i][1])
         imgs.append(outImage)
         
-        check_result = int(check_valid(w, h, nsticker, x, y, facemask))
+        check_result = int(check_valid(w, h, nsticker, x, y, mask))
         valid.append(check_result)
             
     return imgs,valid
 
-def check_valid(w, h, sticker, x, y, facemask):
+def check_valid(w, h, sticker, x, y, mask):
     _,basemap = stick.make_basemap(width=w, height=h, sticker=sticker, x=x, y=y)
     area = np.sum(basemap)
-    overlap = facemask * basemap
+    overlap = mask * basemap
     retain = np.sum(overlap)
     if(abs(area - retain) > 15):
         return 0
     else:
         return 1
 
-def simple_perturb(xs, backimg, sticker, searchspace, facemask):
+def simple_perturb(xs, backimg, sticker, searchspace, mask):
     xs = np.array(xs)
     d = xs.ndim
     if(d==1):
@@ -67,108 +65,68 @@ def simple_perturb(xs, backimg, sticker, searchspace, facemask):
         angle = xs[i][2]
         stickercv = rotate.img_to_cv(sticker)
         rt_sticker = rotate.rotate_bound_white_bg(stickercv, angle)
-        outImage = stick.make_stick2(backimg=backimg, sticker=rt_sticker, x=x, y=y, factor=xs[i][1])
+        outImage = stick.make_stick(backimg=backimg, sticker=rt_sticker, x=x, y=y, factor=xs[i][1])
         imgs.append(outImage)
         
-        check_result = int(check_valid(w, h, rt_sticker, x, y, facemask))
+        check_result = int(check_valid(w, h, rt_sticker, x, y, mask))
         valid.append(check_result)
     
     return imgs,valid
 
-""" query the model for image's classification """
-"""
-def predict_type_xxx(image_perturbed, cleancrop):
-    typess = [[top-1,...,top-5],...]
-    percent = [[probability vector],...]
-    return typess,percent
-"""
-def predict_type_facenet(image_perturbed, cleancrop):
-    #print('shape = ',image_perturbed.shape)
+# """ query the model for image's classification """
+# """
+# def predict_type_xxx(image_perturbed):
+#     top_5_cls_all = [[top-1,...,top-5],...], as a list
+#     prob_all = [[vector of probability in percentage],...], as a tensor
+#     return top_5_cls_all, prob_all
+# """
+@torch.no_grad()
+def predict_type_googlenet(image_perturbed):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    #print('Running on device: {}'.format(device))
+    predictor = GoogLeNet(init_weights=False).to(device)
+    state_dict = torch.load('./models/googlenet-1378be20.pth', map_location=device)
+    predictor.load_state_dict(state_dict, strict=True)
+    predictor.eval()
+
+    preprocess = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
     def collate_fn(x):
-        return x
-    loader = DataLoader(
-        image_perturbed,
-        batch_size=42,
-        shuffle=False,
-        collate_fn=collate_fn
-    )
-    
-    mtcnn = MTCNN(
-        image_size=160, margin=0, min_face_size=20,
-        thresholds=[0.6, 0.7, 0.7], factor=0.709, post_process=True,
-        device=device
-    )
+        x = [preprocess(sample) for sample in x]
+        return torch.stack(x)
+    loader = DataLoader(image_perturbed, batch_size=42, shuffle=False, collate_fn=collate_fn)
 
-    resnet = InceptionResnetV1(classify=True, pretrained='vggface2').to(device)
-    # resnet.load_state_dict(torch.load('./models/facenet/ckpt.pt', map_location=device))
-    resnet.eval()
-    resnet.classify = True
-    
-    percent = []
-    typess = []
-    
-    for X in loader:
-        C = mtcnn(X)   # return tensor list
-        C = [cleancrop if x is None else x for x in C]
-        batch_t = torch.stack(C)
-        #print(batch_t.shape)
-        batch_t = batch_t.to(device)
-        out = resnet(batch_t).cpu()
-        #print('logits\' len = ',len(out[0]))
-        #print('true label = ',true_label)
-        with torch.no_grad():
-            _, indices = torch.sort(out.detach(), descending=True)
-            percentage = torch.nn.functional.softmax(out.detach(), dim=1) * 100
-            
-            for i in range(len(out)):
-                cla = [indices[i][0].item(),indices[i][1].item(),indices[i][2].item(),\
-                       indices[i][3].item(),indices[i][4].item()]
-                typess.append(cla)
-                tage = percentage[i]
-                percent.append(tage)
+    top_5_cls_all, prob_all = [], []
+    for input_batch in loader:
+        output = predictor(input_batch)
+        prob = torch.nn.functional.softmax(output, dim=1) * 100
+        _, top_5_cls = torch.topk(prob, 5, dim=1)
+        top_5_cls_all.append(top_5_cls)
+        prob_all.append(prob)
+    return torch.cat(top_5_cls_all, dim=0).tolist(), torch.cat(prob_all, dim=0)
 
-    return typess,percent
-
-"""
-def initial_predict_xxx(image_perturbed):
-    typess = [[top-1,...,top-5],...]
-    percent = [[probability vector],...]
-    C = mtcnn(image_perturbed,save_path='./test.jpg')
-    return typess,percent,C[0]
-"""
-def initial_predict_facenet(image_perturbed):
+@torch.no_grad()
+def initial_predict_googlenet(image_perturbed):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    
-    mtcnn = MTCNN(
-        image_size=160, margin=0, min_face_size=20,
-        thresholds=[0.6, 0.7, 0.7], factor=0.709, post_process=True,
-        device=device
-    )
+    predictor = GoogLeNet(init_weights=False).to(device)
+    state_dict = torch.load('./models/googlenet-1378be20.pth', map_location=device)
+    predictor.load_state_dict(state_dict, strict=True)
+    predictor.eval()
 
-    resnet = InceptionResnetV1(classify=True, pretrained='vggface2').to(device)
-    # resnet.load_state_dict(torch.load('./models/facenet/ckpt.pt', map_location=device))
-    resnet.eval()
-    resnet.classify = True
-    
-    percent = []
-    typess = []
-    
-    C = mtcnn(image_perturbed,save_path='./test.jpg')   # return tensor list
-    batch_t = torch.stack(C)
-    #print(batch_t.shape)
-    batch_t = batch_t.to(device)
-    out = resnet(batch_t).cpu()
-    with torch.no_grad():
-        _, indices = torch.sort(out.detach(), descending=True)
-        percentage = torch.nn.functional.softmax(out.detach(), dim=1) * 100
-        cla = [indices[0][0].item(),indices[0][1].item(),indices[0][2].item(),\
-               indices[0][3].item(),indices[0][4].item()]
-        typess.append(cla)
-        tage = percentage[0]
-        percent.append(tage)
+    preprocess = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    input_tensor = preprocess(image_perturbed[0])
+    input_batch = input_tensor.unsqueeze(0)
 
-    return typess,percent,C[0]
+    output = predictor(input_batch)
+    prob = torch.nn.functional.softmax(output[0], dim=0) * 100
+    _, top_5_cls = torch.topk(prob, 5)
 
-
+    return top_5_cls.tolist()

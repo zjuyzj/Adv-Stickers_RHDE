@@ -1,4 +1,3 @@
-
 def num_clip(l,u,x):
     if(x>=l):
         if(x<=u):

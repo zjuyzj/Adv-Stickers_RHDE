@@ -1,9 +1,8 @@
 *.jpg
+*.jpeg
 *.png
-*.dat
-*.mat
-*.pt
+*.pth
 *.pyc
 
-face3d
 datasets
+models

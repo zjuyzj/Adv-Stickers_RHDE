@@ -9,11 +9,11 @@ opencv-python==4.10.0.84
 torch==1.7.1+cu110
 torchvision==0.8.2+cu110
 
-# pip install dlib-19.21.1-cp38-cp38-linux_x86_64.whl
-facenet_pytorch==2.4.1
-# git clone https://github.com/YadiraF/face3d
-# cd face3d/mesh/cython
-# python setup.py build_ext -i 
-scikit-image==0.17.2
-matplotlib==3.7.5
-Cython==3.0.11
+# # pip install dlib-19.21.1-cp38-cp38-linux_x86_64.whl
+# facenet_pytorch==2.4.1
+# # git clone https://github.com/YadiraF/face3d
+# # cd face3d/mesh/cython
+# # python setup.py build_ext -i 
+# scikit-image==0.17.2
+# matplotlib==3.7.5
+# Cython==3.0.11

@@ -8,19 +8,15 @@ from utils import Config
 from utils import rotate
 from utils import stick
 from utils import predict
-from utils import mapping3d
-from utils import feature
 from utils import tools
 
 """ Perturb the image with the given individual(xs) and get the prediction of the model """
-def predict_classes(cleancrop, xs, gorb, initial_pic, target_class, searchspace, \
-    sticker, opstickercv, magnification, zstore, facemask, minimize=True):
-    imgs_perturbed, valid = predict.perturb_image(xs, initial_pic, \
-        sticker, opstickercv, magnification, zstore, searchspace, facemask)
+def predict_classes(xs, gorb, initial_pic, target_class, searchspace, sticker, opstickercv, magnification, z_buffer, mask, minimize=True):
+    imgs_perturbed, valid = predict.perturb_image(xs, initial_pic, sticker, opstickercv, magnification, z_buffer, searchspace, mask)
     predictions = []
     le = len(imgs_perturbed)
     
-    rank, pred_p = eval('predict.predict_type_{}(imgs_perturbed,cleancrop)'.format(threat_model))
+    rank, pred_p = eval('predict.predict_type_{}(imgs_perturbed)'.format(threat_model))
      
     global timess    
     timess=timess+1
@@ -51,23 +47,19 @@ def predict_classes(cleancrop, xs, gorb, initial_pic, target_class, searchspace,
     duplicate = copy.deepcopy(predictions)
     current_optimal = int(duplicate.argsort()[0])
     mingap = pred_p[current_optimal][rank[current_optimal][0]].item() - pred_p[current_optimal][rank[current_optimal][1]].item()
-    #print('mingap = ',mingap)
     if(gorb == 0):
         generate_rank.append([rank[current_optimal][0],rank[current_optimal][1]])
         generate_score.append([pred_p[current_optimal][rank[current_optimal][0]].item(),pred_p[current_optimal][rank[current_optimal][1]].item()])
         sid = int(xs[current_optimal][0])
-        #print('x,y = ',int(searchspace[sid][0]),int(searchspace[sid][1]))
     elif(gorb == 1):
         best_rank.append([rank[current_optimal][0],rank[current_optimal][1]])
         best_score.append([pred_p[current_optimal][rank[current_optimal][0]].item(),pred_p[current_optimal][rank[current_optimal][1]].item()])
         sid = int(xs[current_optimal][0])
-        #print('x,y = ',int(searchspace[sid][0]),int(searchspace[sid][1]))
     if(start==False and rank[current_optimal][0] == target_class and mingap <= bound):
         start = True
         latter = rank[current_optimal][1]
         convert = True
         print('--------------convert to target attack--------')
-        #print('mingap = ',mingap)
     return predictions, rank, convert, pred_p, valid
 
 def convert_energy(rank, pred_p, valid, target_class):
@@ -92,14 +84,10 @@ def convert_energy(rank, pred_p, valid, target_class):
     predictions = np.array(predictions)
     return predictions    
 
-def single_predict(cleancrop,xs, initial_pic, true_label, searchspace, \
-    sticker,opstickercv,magnification, zstore, facemask):
-    # imgs_perturbed, valid = predict.perturb_image(xs, initial_pic, \
-    #     sticker, opstickercv, magnification, zstore, searchspace, facemask)
-    imgs_perturbed, valid = predict.simple_perturb(xs, initial_pic, \
-        sticker, searchspace, facemask)
+def single_predict(xs, initial_pic, true_label, searchspace, sticker,opstickercv,magnification, z_buffer, mask):
+    imgs_perturbed, valid = predict.simple_perturb(xs, initial_pic, sticker, searchspace, mask)
     
-    rank, pred_p = eval('predict.predict_type_{}(imgs_perturbed,cleancrop)'.format(threat_model))
+    rank, pred_p = eval('predict.predict_type_{}(imgs_perturbed)'.format(threat_model))
     predictions = []
     for i in range(len(imgs_perturbed)):
         if(rank[i][0] != true_label):   # untarget
@@ -114,22 +102,18 @@ def single_predict(cleancrop,xs, initial_pic, true_label, searchspace, \
     return predictions
 
 """  If the prediction is what we want (misclassification or targeted classification), return True """
-def attack_success(cleancrop,x, initial_pic, target_class, searchspace, \
-    sticker,opstickercv,magnification, zstore, facemask, targeted_attack=False):
-    attack_image, valid = predict.perturb_image(x, initial_pic, \
-        sticker, opstickercv, magnification, zstore, searchspace, facemask)
+def attack_success(x, initial_pic, target_class, searchspace, sticker,opstickercv,magnification, z_buffer, mask, targeted_attack=False):
+    attack_image, valid = predict.perturb_image(x, initial_pic, sticker, opstickercv, magnification, z_buffer, searchspace, mask)
     
-    rank, _ = eval('predict.predict_type_{}(attack_image,cleancrop)'.format(threat_model))
+    rank, _ = eval('predict.predict_type_{}(attack_image)'.format(threat_model))
     predicted_class = rank[0][0]
-    #print('callback: predicted_class=',predicted_class,'valid[0]=',valid[0],x)
     if ((targeted_attack and predicted_class == target_class and valid[0]==1) or
         (not targeted_attack and predicted_class != target_class and valid[0]==1)):
         return True
     # NOTE: return None otherwise (not False), due to how Scipy handles its callback function
 
-def region_produce(cleancrop,xs, true_label, searchspace, pack_searchspace, trace_searchspace, initial_pic, \
-    sticker, opstickercv, magnification, zstore, facemask):
-    h, w = int(facemask.shape[0]), int(facemask.shape[1])
+def region_produce(xs, true_label, searchspace, pack_searchspace, trace_searchspace, initial_pic, sticker, opstickercv, magnification, z_buffer, mask):
+    h, w = int(mask.shape[0]), int(mask.shape[1])
     len_relative = len(xs)
     len_per = np.zeros((len_relative,1))  # the number of valid dots around the current dot
     pots = []                             # The whole set of perturbation vectors considered in inbreeding
@@ -150,7 +134,6 @@ def region_produce(cleancrop,xs, true_label, searchspace, pack_searchspace, trac
                 if(judge <= 0.5):                            # change the step
                     slide = 2
                     while(1):
-                        #print('change step')
                         far_neighbors = tools.adjacent_coordinates(x,y,s=slide)
                         pn = int(far_neighbors[j][0])
                         qn = int(far_neighbors[j][1])
@@ -164,7 +147,6 @@ def region_produce(cleancrop,xs, true_label, searchspace, pack_searchspace, trac
                         temp = temp + 1
                         pots.append([attribute,alp,angle])
                 else:                                        # change the alpha using random
-                    #print('change alpha')
                     attribute = pack_searchspace[q][p]
                     alp_ex = random.uniform(0.8,0.98)
                     if(attribute >= 0):
@@ -174,15 +156,12 @@ def region_produce(cleancrop,xs, true_label, searchspace, pack_searchspace, trac
             else:
                 trace_searchspace[q][p].append(alp)
                 attribute = pack_searchspace[q][p]
-                #print('attribute = ',attribute)
                 if(attribute >= 0):
                     temp = temp + 1
                     pots.append([attribute,alp,angle])
         len_per[i][0] = temp
-    predictions = single_predict(cleancrop,pots, initial_pic, true_label, searchspace, \
-        sticker,opstickercv,magnification, zstore, facemask)
+    predictions = single_predict(pots, initial_pic, true_label, searchspace, sticker,opstickercv,magnification, z_buffer, mask)
     cursor = 0
-    #print('len_per = ',len_per.T)
     for i in range(len_relative):
         sublen = len_per[i][0]
         if(sublen != 0):
@@ -194,28 +173,27 @@ def region_produce(cleancrop,xs, true_label, searchspace, pack_searchspace, trac
             inbreeding.append(xs[i])
         cursor = cursor + sublen
     
-    #print('len_relative, inbreeding = ',len_relative, len(inbreeding))
     return inbreeding
 
-def attack(idx,true_label,initial_pic,sticker,opstickercv,magnification,\
-    cleancrop,zstore,target=None, maxiter=30, popsize=40):
+def attack(idx, true_label, initial_pic, sticker, opstickercv, magnification, z_buffer, target=None, maxiter=30, popsize=40):
     # Change the target class based on whether this is a targeted attack or not
     targeted_attack = target is not None
     target_class = target if targeted_attack else true_label
 
-    facemask = feature.make_mask(initial_pic) # valid=1, unvalid=0
+    mask = np.zeros((initial_pic.height, initial_pic.width)) # valid=1, unvalid=0
+    mask[0:initial_pic.height-sticker.height, 0:initial_pic.width-sticker.width] = 1
 
-    num_space = np.sum(facemask).astype(int)
+    num_space = np.sum(mask).astype(int)
     searchspace = np.zeros((num_space,2))         # store the coordinate(Image style)
-    pack_searchspace = copy.deepcopy(facemask)-2  # record the id, unvalid=-2
+    pack_searchspace = copy.deepcopy(mask)-2  # record the id, unvalid=-2
     trace_searchspace = []                        # mark whether it has been accessed
-    for i in range(facemask.shape[0]):
-        col = [[-1] for j in range(facemask.shape[1])]
+    for i in range(mask.shape[0]):
+        col = [[-1] for j in range(mask.shape[1])]
         trace_searchspace.append(col)
     k = 0
-    for i in range(facemask.shape[0]):
-        for j in range(facemask.shape[1]):
-            if(facemask[i][j] == 1):
+    for i in range(mask.shape[0]):
+        for j in range(mask.shape[1]):
+            if(mask[i][j] == 1):
                 searchspace[k] = (j,i)
                 # pack_searchspace[i][j] = k
                 k = k + 1
@@ -229,16 +207,13 @@ def attack(idx,true_label,initial_pic,sticker,opstickercv,magnification,\
     
     # Format the predict/callback functions for the differential evolution algorithm
     def predict_fn(xs,gorb):
-        return predict_classes(cleancrop,xs, gorb, initial_pic, target_class, searchspace, \
-            sticker,opstickercv,magnification, zstore, facemask, target is None)
+        return predict_classes(xs, gorb, initial_pic, target_class, searchspace, sticker,opstickercv,magnification, z_buffer, mask, target is None)
     
     def callback_fn(x, convergence):
-        return attack_success(cleancrop,x, initial_pic, target_class, searchspace, \
-            sticker,opstickercv,magnification, zstore, facemask, targeted_attack)
+        return attack_success(x, initial_pic, target_class, searchspace, sticker,opstickercv,magnification, z_buffer, mask, targeted_attack)
     
     def region_fn(xs):
-        return region_produce(cleancrop,xs, true_label, searchspace, pack_searchspace, trace_searchspace, \
-            initial_pic, sticker,opstickercv,magnification, zstore, facemask)
+        return region_produce(xs, true_label, searchspace, pack_searchspace, trace_searchspace, initial_pic, sticker,opstickercv,magnification, z_buffer, mask)
     
     def ct_energy(ranks, pred_ps, valids):
         return convert_energy(ranks, pred_ps, valids, target_class)
@@ -248,11 +223,10 @@ def attack(idx,true_label,initial_pic,sticker,opstickercv,magnification,\
         recombination=1, atol=-1, callback=callback_fn, polish=False)
 
     # Calculate some useful statistics to return from this function
-    attack_image, valid = predict.perturb_image(attack_result.x, initial_pic, \
-        sticker, opstickercv, magnification, zstore, searchspace, facemask)
+    attack_image, valid = predict.perturb_image(attack_result.x, initial_pic, sticker, opstickercv, magnification, z_buffer, searchspace, mask)
     
-    rank, pred_p = eval('predict.predict_type_{}([initial_pic],cleancrop)'.format(threat_model))
-    rank2, pred_p2 = eval('predict.predict_type_{}(attack_image,cleancrop)'.format(threat_model))
+    rank, pred_p = eval('predict.predict_type_{}([initial_pic])'.format(threat_model))
+    rank2, pred_p2 = eval('predict.predict_type_{}(attack_image)'.format(threat_model))
     os.makedirs('./results_img', exist_ok=True)
     attack_image[0].save('./results_img/{}.png'.format(idx))
     
@@ -279,8 +253,7 @@ def attack(idx,true_label,initial_pic,sticker,opstickercv,magnification,\
 
 
 if __name__=="__main__":
-    
-    model_set = ['arcface', 'facenet', 'sphereface','cosface']
+    model_set = ['googlenet']
     pinf, ninf = 99.9999999, 0.0000001
     convert = False          # indicate whether DE needs to re-compute energies to compare with target result
     start = False            # whether start target attack from untarget style
@@ -305,10 +278,8 @@ if __name__=="__main__":
     sticker = stick.change_sticker(stickerpic,scale2)
     opstickercv = rotate.img_to_cv(operate_sticker)
 
-    rank, _, cleancrop = eval('predict.initial_predict_{}([initial_pic])'.format(threat_model))
+    rank = eval('predict.initial_predict_{}([initial_pic])'.format(threat_model))
     
-    if(rank[0][0] == true_label):
-        zstore = mapping3d.generate_zstore(initial_pic)
-        r = attack(idx,true_label, initial_pic, sticker,opstickercv,magnification,cleancrop,zstore)
-        
-        
+    if(rank[0] == true_label):
+        z_buffer = np.zeros((initial_pic.height, initial_pic.width))
+        r = attack(idx, true_label, initial_pic, sticker, opstickercv, magnification, z_buffer)
