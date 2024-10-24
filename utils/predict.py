@@ -58,7 +58,7 @@ def simple_perturb(xs, backimg, sticker, searchspace, mask):
     valid = []
     l = len(xs)
     for i in range(l):
-        print('making {}-th perturbed image'.format(i),end='\r')
+        # print('making {}-th perturbed image'.format(i),end='\r')
         sid = int(xs[i][0])
         x = int(searchspace[sid][0])
         y = int(searchspace[sid][1])

@@ -288,7 +288,7 @@ class DifferentialEvolutionSolver(object):
             # should the solver terminate?
             convergence = self.convergence
             
-            print('iter = ',nit,'bestparam=',self.parampopulation[0],'score=',self.population_energies[0])
+            print(f'iter = {nit}, best_param = {self.parampopulation[0]}, score = {self.population_energies[0]}')
             if ((self.callback and
                     self.callback(self._scale_parameters(self.population[0]),
                                   convergence=self.tol / convergence) is True) or self.population_energies[0]<-99):
