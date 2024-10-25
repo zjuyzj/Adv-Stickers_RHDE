@@ -73,6 +73,9 @@ def simple_perturb(xs, backimg, sticker, searchspace, mask):
     
     return imgs,valid
 
+CKPT_NUM_CLASS=20
+CKPT_FILENAME='googlenet-cls_dataset-best.pth'
+
 # """ query the model for image's classification """
 # """
 # def predict_type_xxx(image_perturbed):
@@ -83,9 +86,9 @@ def simple_perturb(xs, backimg, sticker, searchspace, mask):
 @torch.no_grad()
 def predict_type_googlenet(image_perturbed):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    predictor = GoogLeNet(init_weights=False).to(device)
-    state_dict = torch.load('./models/googlenet-1378be20.pth', map_location=device)
-    predictor.load_state_dict(state_dict, strict=True)
+    predictor = GoogLeNet(num_classes=CKPT_NUM_CLASS, aux_logits=False, init_weights=False).to(device)
+    state_dict = torch.load(f'./models/{CKPT_FILENAME}', map_location=device)
+    predictor.load_state_dict(state_dict, strict=False)
     predictor.eval()
 
     preprocess = transforms.Compose([
@@ -101,7 +104,7 @@ def predict_type_googlenet(image_perturbed):
 
     top_5_cls_all, prob_all = [], []
     for input_batch in loader:
-        output = predictor(input_batch)
+        output = predictor(input_batch.to(device))
         prob = torch.nn.functional.softmax(output, dim=1) * 100
         _, top_5_cls = torch.topk(prob, 5, dim=1)
         top_5_cls_all.append(top_5_cls)
@@ -111,9 +114,9 @@ def predict_type_googlenet(image_perturbed):
 @torch.no_grad()
 def initial_predict_googlenet(image_perturbed):
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    predictor = GoogLeNet(init_weights=False).to(device)
-    state_dict = torch.load('./models/googlenet-1378be20.pth', map_location=device)
-    predictor.load_state_dict(state_dict, strict=True)
+    predictor = GoogLeNet(num_classes=CKPT_NUM_CLASS, aux_logits=False, init_weights=False).to(device)
+    state_dict = torch.load(f'./models/{CKPT_FILENAME}', map_location=device)
+    predictor.load_state_dict(state_dict, strict=False)
     predictor.eval()
 
     preprocess = transforms.Compose([
@@ -125,7 +128,7 @@ def initial_predict_googlenet(image_perturbed):
     input_tensor = preprocess(image_perturbed[0])
     input_batch = input_tensor.unsqueeze(0)
 
-    output = predictor(input_batch)
+    output = predictor(input_batch.to(device))
     prob = torch.nn.functional.softmax(output[0], dim=0) * 100
     _, top_5_cls = torch.topk(prob, 5)
 

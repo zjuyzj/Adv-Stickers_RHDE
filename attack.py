@@ -40,6 +40,7 @@ class Attacker():
         if(rank[0] == gt_label):
             z_buffer = np.zeros((image.height, image.width))
             return self._attack(gt_label, image, self.sticker, self.opstickercv, self.magnification, z_buffer, maxiter=maxiter)
+        else: return None, None
 
     def _attack(self, true_label, initial_pic, sticker, opstickercv, magnification, z_buffer, target=None, maxiter=30, popsize=40):
         # Change the target class based on whether this is a targeted attack or not
@@ -228,7 +229,7 @@ class Attacker():
             cursor = cursor + sublen
         return inbreeding
     
-def attack_all(dataset_name = 'ImageNet-1K', use_raw_label=True, maxiter=30):
+def attack_all(dataset_name = 'clean_cls_samples', use_raw_label=False, maxiter=30):
     generated_path = './datasets/generated'
     dataset = datasets.ImageFolder(f'./datasets/{dataset_name}')
     attacker = Attacker()
@@ -244,7 +245,8 @@ def attack_all(dataset_name = 'ImageNet-1K', use_raw_label=True, maxiter=30):
         print(f'[END] {img_filename} ({attack_param})')
         attack_img_folder_path = os.path.join(generated_path, img_cls_name)
         os.makedirs(attack_img_folder_path, exist_ok=True)
-        attack_img[0].save(os.path.join(attack_img_folder_path, img_filename))
+        if attack_img is not None: attack_img[0].save(os.path.join(attack_img_folder_path, img_filename))
+        else: img.save(os.path.join(attack_img_folder_path, img_filename))
 
 if __name__=="__main__":
-    attack_all(maxiter=30)
+    attack_all(maxiter=8)
